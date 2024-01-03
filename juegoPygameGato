@@ -1,1 +1,179 @@
+import pygame
+import sys
+import time
+
+# Inicialización de Pygame
+pygame.init()
+
+# Definición de variables
+WIDTH, HEIGHT = 300, 300
+LINE_WIDTH = 15
+BOARD_SIZE = 3
+BACKGROUND_COLOR = (255, 255, 255)
+LINE_COLOR = (0, 0, 0)
+CIRCLE_COLOR = (0, 128, 0)  # Verde oscuro
+CROSS_COLOR = (0, 0, 255)  # Azul
+FONT_COLOR = (0, 0, 0)
+FPS = 60
+
+# Inicialización de la ventana
+screen = pygame.display.set_mode((WIDTH, HEIGHT + 50))
+pygame.display.set_caption("Juego del Gato")
+
+# Inicialización del reloj
+clock = pygame.time.Clock()
+
+# Definir player_turn como una variable global
+player_turn = 'X'
+
+# Inicialización del tablero
+board = [[' ' for _ in range(BOARD_SIZE)] for _ in range(BOARD_SIZE)]
+
+# Posiciones de los símbolos
+symbol_positions = [[None for _ in range(BOARD_SIZE)] for _ in range(BOARD_SIZE)]
+
+# Función para dibujar el tablero
+def draw_board():
+    screen.fill(BACKGROUND_COLOR)
+    for i in range(1, BOARD_SIZE):
+        pygame.draw.line(screen, LINE_COLOR, (0, i * HEIGHT // BOARD_SIZE), (WIDTH, i * HEIGHT // BOARD_SIZE), LINE_WIDTH)
+        pygame.draw.line(screen, LINE_COLOR, (i * WIDTH // BOARD_SIZE, 0), (i * WIDTH // BOARD_SIZE, HEIGHT), LINE_WIDTH)
+
+# Función para dibujar la cruz en una posición específica
+def draw_cross(row, col):
+    pygame.draw.line(screen, CROSS_COLOR, (col * WIDTH // BOARD_SIZE, row * HEIGHT // BOARD_SIZE),
+                     ((col + 1) * WIDTH // BOARD_SIZE, (row + 1) * HEIGHT // BOARD_SIZE), LINE_WIDTH)
+    pygame.draw.line(screen, CROSS_COLOR, ((col + 1) * WIDTH // BOARD_SIZE, row * HEIGHT // BOARD_SIZE),
+                     (col * WIDTH // BOARD_SIZE, (row + 1) * HEIGHT // BOARD_SIZE), LINE_WIDTH)
+
+# Función para dibujar el círculo en una posición específica
+def draw_circle(row, col):
+    pygame.draw.circle(screen, CIRCLE_COLOR, (col * WIDTH // BOARD_SIZE + WIDTH // (2 * BOARD_SIZE),
+                                               row * HEIGHT // BOARD_SIZE + HEIGHT // (2 * BOARD_SIZE)),
+                       min(WIDTH // (2 * BOARD_SIZE), HEIGHT // (2 * BOARD_SIZE)) - 5, LINE_WIDTH)
+
+# Función para mostrar el contador
+def show_counters(counter_x, counter_o):
+    font = pygame.font.SysFont(None, 30)
+    text_x = font.render(f'Jugador X: {counter_x}', True, FONT_COLOR)
+    text_o = font.render(f'Jugador O: {counter_o}', True, FONT_COLOR)
+    screen.blit(text_x, (10, HEIGHT + 10))
+    screen.blit(text_o, (10, HEIGHT + 30))
+
+
+# Función principal del juego
+def main():
+    global player_turn
+    game_over = False
+    counters = {'X': 0, 'O': 0}
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN and not game_over:
+                handle_mouse_click(board, counters)
+                player_turn = 'O' if player_turn == 'X' else 'X'
+
+        draw_board()
+        draw_symbols()
+        update_display(counters, game_over)
+        clock.tick(FPS)
+
+        if not game_over:  # Verificar victoria o empate después de dibujar los símbolos
+            handle_winner(board, counters)
+
+# Función para manejar clics del ratón
+def handle_mouse_click(board, counters):
+    global player_turn
+    mouseX, mouseY = pygame.mouse.get_pos()
+    clicked_row = mouseY // (HEIGHT // BOARD_SIZE)
+    clicked_col = mouseX // (WIDTH // BOARD_SIZE)
+
+    if board[clicked_row][clicked_col] == ' ':
+        if player_turn == 'X':
+            symbol_positions[clicked_row][clicked_col] = 'X'
+            board[clicked_row][clicked_col] = 'X'
+        else:
+            symbol_positions[clicked_row][clicked_col] = 'O'
+            board[clicked_row][clicked_col] = 'O'
+
+        handle_winner(board, counters)
+
+# Función para manejar la lógica de ganar o empatar
+def handle_winner(board, counters):
+    global player_turn
+    winner = check_winner(board)
+    if winner:
+        counters[winner] += 1
+        show_game_result(board, True)
+        pygame.display.flip()  # Forzar actualización visual antes de pausar
+        time.sleep(2)  # Pausar durante 2 segundos
+        reset_board(board)
+        reset_symbol_positions()
+        show_game_result(board, False)
+        pygame.display.flip()  # Actualizar visualmente después de la pausa
+    elif all(all(cell != ' ' for cell in row) for row in board):
+        reset_board(board)
+        reset_symbol_positions()
+
+# Función para reiniciar el tablero
+def reset_board(board):
+    for i in range(BOARD_SIZE):
+        for j in range(BOARD_SIZE):
+            board[i][j] = ' '
+
+# Función para reiniciar las posiciones de los símbolos
+def reset_symbol_positions():
+    for i in range(BOARD_SIZE):
+        for j in range(BOARD_SIZE):
+            symbol_positions[i][j] = None
+
+# Función para verificar si hay un ganador
+def check_winner(board):
+    for i in range(BOARD_SIZE):
+        if all(board[i][j] == board[i][0] and board[i][0] != ' ' for j in range(BOARD_SIZE)):
+            return board[i][0]
+        if all(board[j][i] == board[0][i] and board[0][i] != ' ' for j in range(BOARD_SIZE)):
+            return board[0][i]
+
+    if all(board[i][i] == board[0][0] and board[0][0] != ' ' for i in range(BOARD_SIZE)):
+        return board[0][0]
+    if all(board[i][BOARD_SIZE - 1 - i] == board[0][BOARD_SIZE - 1] and board[0][BOARD_SIZE - 1] != ' '
+           for i in range(BOARD_SIZE)):
+        return board[0][BOARD_SIZE - 1]
+
+    return None
+
+# Función para actualizar la pantalla
+def update_display(counters, game_over):
+    show_counters(counters['X'], counters['O'])
+    pygame.display.flip()
+
+# Función para mostrar el resultado del juego
+def show_game_result(board, game_over):
+    if game_over:
+        winner = check_winner(board)
+        if winner:
+            font = pygame.font.SysFont(None, 40)
+            text = font.render(f'¡Ganador: Jugador {winner}!', True, FONT_COLOR)
+            screen.blit(text, (WIDTH // 2 - text.get_width() // 2, HEIGHT + 10))
+        else:
+            font = pygame.font.SysFont(None, 40)
+            text = font.render('¡Empate!', True, FONT_COLOR)
+            screen.blit(text, (WIDTH // 2 - text.get_width() // 2, HEIGHT + 10))
+
+# Función para dibujar los símbolos en el tablero
+def draw_symbols():
+    for i in range(BOARD_SIZE):
+        for j in range(BOARD_SIZE):
+            symbol = symbol_positions[i][j]
+            if symbol == 'X':
+                draw_cross(i, j)
+            elif symbol == 'O':
+                draw_circle(i, j)
+
+if __name__ == "__main__":
+    main()
 
